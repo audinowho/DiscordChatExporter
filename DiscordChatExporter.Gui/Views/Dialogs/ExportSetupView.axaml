@@ -108,6 +108,10 @@
                                 <Run Text="— channel name" />
                                 <LineBreak />
                                 <Run Text=" " />
+                                <Run FontWeight="SemiBold" Text="%l" />
+                                <Run Text="— channel ID chain" />
+                                <LineBreak />
+                                <Run Text=" " />
                                 <Run FontWeight="SemiBold" Text="%p" />
                                 <Run Text="— channel position" />
                                 <LineBreak />

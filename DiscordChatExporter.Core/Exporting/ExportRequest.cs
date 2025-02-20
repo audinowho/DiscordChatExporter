@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -148,6 +149,22 @@ public partial class ExportRequest
         return PathEx.EscapeFileName(buffer.ToString());
     }
 
+    private static string getIdChain(Channel? channel)
+    {
+        List<string> idList = new List<string>();
+
+        while (channel != null)
+        {
+            if (channel.Kind == ChannelKind.GuildCategory)
+                break;
+
+            idList.Insert(0, channel.Id.ToString());
+            channel = channel.Parent;
+        }
+
+        return String.Join(".", idList);
+    }
+
     private static string FormatPath(
         string path,
         Guild guild,
@@ -170,6 +187,8 @@ public partial class ExportRequest
 
                         "%c" => channel.Id.ToString(),
                         "%C" => channel.Name,
+
+                        "%l" => getIdChain(channel),
 
                         "%p" => channel.Position?.ToString(CultureInfo.InvariantCulture) ?? "0",
                         "%P" => channel.Parent?.Position?.ToString(CultureInfo.InvariantCulture)
