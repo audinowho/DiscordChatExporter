@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using CliFx.Attributes;
 using CliFx.Infrastructure;
@@ -20,6 +21,14 @@ public class ExportGuildCommand : ExportCommandBase
 
     [CommandOption("include-vc", Description = "Include voice channels.")]
     public bool IncludeVoiceChannels { get; init; } = true;
+
+    [CommandOption(
+        "exclude-channel",
+        'x',
+        Description = "Channel ID(s). "
+            + "If provided with category ID(s), all channels inside those categories will be excluded."
+    )]
+    public required IReadOnlyList<Snowflake> ExcludeChannelIds { get; init; }
 
     [CommandOption(
         "include-threads",
@@ -65,6 +74,18 @@ public class ExportGuildCommand : ExportCommandBase
             );
 
         await console.Output.WriteLineAsync($"Fetched {fetchedChannelsCount} channel(s).");
+
+        if (ExcludeChannelIds.Count > 0)
+        {
+            int oldChannelCount = channels.Count;
+            channels.RemoveAll(channel =>
+                ExcludeChannelIds.Contains(channel.Id)
+                || (channel.Parent != null && ExcludeChannelIds.Contains(channel.Parent.Id))
+            );
+            int channelDiff = oldChannelCount - channels.Count;
+
+            await console.Output.WriteLineAsync($"Excluded {channelDiff} channel(s).");
+        }
 
         // Threads
         if (ThreadInclusionMode != ThreadInclusionMode.None)
