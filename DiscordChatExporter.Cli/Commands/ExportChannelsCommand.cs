@@ -26,6 +26,14 @@ public class ExportChannelsCommand : ExportCommandBase
     )]
     public required IReadOnlyList<Snowflake> ChannelIds { get; init; }
 
+    [CommandOption(
+        "exclude-channel",
+        'x',
+        Description = "Channel ID(s). "
+            + "If provided with category ID(s), all channels inside those categories will be excluded."
+    )]
+    public required IReadOnlyList<Snowflake> ExcludeChannelIds { get; init; }
+
     public override async ValueTask ExecuteAsync(IConsole console)
     {
         await base.ExecuteAsync(console);
@@ -97,6 +105,19 @@ public class ExportChannelsCommand : ExportCommandBase
             channels.RemoveAll(channel => channel.Kind == ChannelKind.GuildForum);
 
             await console.Output.WriteLineAsync($"Fetched {fetchedThreadsCount} thread(s).");
+        }
+
+
+        if (ExcludeChannelIds.Count > 0)
+        {
+            int oldChannelCount = channels.Count;
+            channels.RemoveAll(channel =>
+                ExcludeChannelIds.Contains(channel.Id)
+                || (channel.Parent != null && ExcludeChannelIds.Contains(channel.Parent.Id))
+            );
+            int channelDiff = oldChannelCount - channels.Count;
+
+            await console.Output.WriteLineAsync($"Excluded {channelDiff} channel(s).");
         }
 
         await ExportAsync(console, channels);
