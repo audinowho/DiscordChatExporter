@@ -155,6 +155,21 @@ public abstract class ExportCommandBase : DiscordCommandBase
     private ChannelExporter? _channelExporter;
     protected ChannelExporter Exporter => _channelExporter ??= new ChannelExporter(Discord);
 
+    protected bool isExcluded(Channel channel)
+    {
+        if (ExcludeChannelIds.Contains(channel.Id))
+            return true;
+        while (channel.Parent != null)
+        {
+            channel = channel.Parent;
+
+            if (ExcludeChannelIds.Contains(channel.Id))
+                return true;
+        }
+
+        return false;
+    }
+
     protected async ValueTask ExportAsync(IConsole console, IReadOnlyList<Channel> channels)
     {
         var cancellationToken = console.RegisterCancellationHandler();
@@ -201,10 +216,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
         if (ExcludeChannelIds.Count > 0)
         {
             int oldChannelCount = channels.Count;
-            unwrappedChannels.RemoveAll(channel =>
-                ExcludeChannelIds.Contains(channel.Id)
-                || (channel.Parent != null && ExcludeChannelIds.Contains(channel.Parent.Id))
-            );
+            unwrappedChannels.RemoveAll(isExcluded);
             int channelDiff = oldChannelCount - channels.Count;
 
             await console.Output.WriteLineAsync($"Excluded {channelDiff} channel(s).");
