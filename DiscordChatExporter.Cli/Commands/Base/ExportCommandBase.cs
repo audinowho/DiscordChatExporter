@@ -73,6 +73,14 @@ public abstract class ExportCommandBase : DiscordCommandBase
     public ThreadInclusionMode ThreadInclusionMode { get; init; } = ThreadInclusionMode.None;
 
     [CommandOption(
+        "exclude-channel",
+        'x',
+        Description = "Channel ID(s). "
+            + "If provided with category ID(s), all channels inside those categories will be excluded."
+    )]
+    public IReadOnlyList<Snowflake> ExcludeChannelIds { get; init; } = new Snowflake[0];
+
+    [CommandOption(
         "filter",
         Description = "Only include messages that satisfy this filter. "
             + "See the documentation for more info."
@@ -149,6 +157,59 @@ public abstract class ExportCommandBase : DiscordCommandBase
 
     protected async ValueTask ExportAsync(IConsole console, IReadOnlyList<Channel> channels)
     {
+        var cancellationToken = console.RegisterCancellationHandler();
+
+        var unwrappedChannels = new List<Channel>();
+        unwrappedChannels.AddRange(channels);
+        // Threads
+        if (ThreadInclusionMode != ThreadInclusionMode.None)
+        {
+            await console.Output.WriteLineAsync("Fetching threads...");
+
+            var fetchedThreadsCount = 0;
+            await console
+                .CreateStatusTicker()
+                .StartAsync(
+                    "...",
+                    async ctx =>
+                    {
+                        await foreach (
+                            var thread in Discord.GetChannelThreadsAsync(
+                                unwrappedChannels,
+                                ThreadInclusionMode == ThreadInclusionMode.All,
+                                Before,
+                                After,
+                                cancellationToken
+                            )
+                        )
+                        {
+                            unwrappedChannels.Add(thread);
+
+                            ctx.Status(Markup.Escape($"Fetched '{thread.GetHierarchicalName()}'."));
+
+                            fetchedThreadsCount++;
+                        }
+                    }
+                );
+
+            // Remove unneeded forums, as they cannot be crawled directly.
+            unwrappedChannels.RemoveAll(channel => channel.Kind == ChannelKind.GuildForum);
+
+            await console.Output.WriteLineAsync($"Fetched {fetchedThreadsCount} thread(s).");
+        }
+
+        if (ExcludeChannelIds.Count > 0)
+        {
+            int oldChannelCount = channels.Count;
+            unwrappedChannels.RemoveAll(channel =>
+                ExcludeChannelIds.Contains(channel.Id)
+                || (channel.Parent != null && ExcludeChannelIds.Contains(channel.Parent.Id))
+            );
+            int channelDiff = oldChannelCount - channels.Count;
+
+            await console.Output.WriteLineAsync($"Excluded {channelDiff} channel(s).");
+        }
+
         // Asset reuse can only be enabled if the download assets option is set
         // https://github.com/Tyrrrz/DiscordChatExporter/issues/425
         if (ShouldReuseAssets && !ShouldDownloadAssets)
@@ -168,7 +229,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
         // https://github.com/Tyrrrz/DiscordChatExporter/issues/917
         var isValidOutputPath =
             // Anything is valid when exporting a single channel
-            channels.Count <= 1
+            unwrappedChannels.Count <= 1
             // When using template tokens, assume the user knows what they're doing
             || OutputPath.Contains('%')
             // Otherwise, require an existing directory or an unambiguous directory path
@@ -185,10 +246,10 @@ public abstract class ExportCommandBase : DiscordCommandBase
         }
 
         // Export
-        var cancellationToken = console.RegisterCancellationHandler();
         var errorsByChannel = new ConcurrentDictionary<Channel, string>();
+        var warningsByChannel = new ConcurrentDictionary<Channel, string>();
 
-        await console.Output.WriteLineAsync($"Exporting {channels.Count} channel(s)...");
+        await console.Output.WriteLineAsync($"Exporting {unwrappedChannels.Count} channel(s)...");
         await console
             .CreateProgressTicker()
             .HideCompleted(
@@ -200,7 +261,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
             .StartAsync(async ctx =>
             {
                 await Parallel.ForEachAsync(
-                    channels,
+                    unwrappedChannels,
                     new ParallelOptions
                     {
                         MaxDegreeOfParallelism = Math.Max(1, ParallelLimit),
@@ -244,6 +305,10 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                 }
                             );
                         }
+                        catch (ChannelEmptyException ex)
+                        {
+                            warningsByChannel[channel] = ex.Message;
+                        }
                         catch (DiscordChatExporterException ex) when (!ex.IsFatal)
                         {
                             errorsByChannel[channel] = ex.Message;
@@ -256,8 +321,30 @@ public abstract class ExportCommandBase : DiscordCommandBase
         using (console.WithForegroundColor(ConsoleColor.White))
         {
             await console.Output.WriteLineAsync(
-                $"Successfully exported {channels.Count - errorsByChannel.Count} channel(s)."
+                $"Successfully exported {unwrappedChannels.Count - errorsByChannel.Count} channel(s)."
             );
+        }
+
+        // Print warnings
+        if (warningsByChannel.Any())
+        {
+            await console.Output.WriteLineAsync();
+
+            using (console.WithForegroundColor(ConsoleColor.Yellow))
+            {
+                await console.Error.WriteLineAsync(
+                    "Warnings reported for the following channel(s):"
+                );
+            }
+
+            foreach (var (channel, message) in warningsByChannel)
+            {
+                await console.Error.WriteAsync($"{channel.GetHierarchicalName()}: ");
+                using (console.WithForegroundColor(ConsoleColor.Yellow))
+                    await console.Error.WriteLineAsync(message);
+            }
+
+            await console.Error.WriteLineAsync();
         }
 
         // Print errors
@@ -267,16 +354,14 @@ public abstract class ExportCommandBase : DiscordCommandBase
 
             using (console.WithForegroundColor(ConsoleColor.Red))
             {
-                await console.Error.WriteLineAsync(
-                    $"Failed to export {errorsByChannel.Count} the following channel(s):"
-                );
+                await console.Error.WriteLineAsync("Failed to export the following channel(s):");
             }
 
-            foreach (var (channel, error) in errorsByChannel)
+            foreach (var (channel, message) in errorsByChannel)
             {
                 await console.Error.WriteAsync($"{channel.GetHierarchicalName()}: ");
                 using (console.WithForegroundColor(ConsoleColor.Red))
-                    await console.Error.WriteLineAsync(error);
+                    await console.Error.WriteLineAsync(message);
             }
 
             await console.Error.WriteLineAsync();
@@ -284,7 +369,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
 
         // Fail the command only if ALL channels failed to export.
         // If only some channels failed to export, it's okay.
-        if (errorsByChannel.Count >= channels.Count)
+        if (errorsByChannel.Count >= unwrappedChannels.Count)
             throw new CommandException("Export failed.");
     }
 

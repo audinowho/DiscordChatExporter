@@ -22,13 +22,6 @@ public class ExportGuildCommand : ExportCommandBase
     [CommandOption("include-vc", Description = "Include voice channels.")]
     public bool IncludeVoiceChannels { get; init; } = true;
 
-    [CommandOption(
-        "exclude-channel",
-        'x',
-        Description = "Channel ID(s). "
-            + "If provided with category ID(s), all channels inside those categories will be excluded."
-    )]
-    public required IReadOnlyList<Snowflake> ExcludeChannelIds { get; init; }
     public override async ValueTask ExecuteAsync(IConsole console)
     {
         await base.ExecuteAsync(console);
@@ -66,52 +59,6 @@ public class ExportGuildCommand : ExportCommandBase
             );
 
         await console.Output.WriteLineAsync($"Fetched {fetchedChannelsCount} channel(s).");
-
-        // Threads
-        if (ThreadInclusionMode != ThreadInclusionMode.None)
-        {
-            await console.Output.WriteLineAsync("Fetching threads...");
-
-            var fetchedThreadsCount = 0;
-            await console
-                .CreateStatusTicker()
-                .StartAsync(
-                    "...",
-                    async ctx =>
-                    {
-                        await foreach (
-                            var thread in Discord.GetGuildThreadsAsync(
-                                GuildId,
-                                ThreadInclusionMode == ThreadInclusionMode.All,
-                                Before,
-                                After,
-                                cancellationToken
-                            )
-                        )
-                        {
-                            channels.Add(thread);
-
-                            ctx.Status(Markup.Escape($"Fetched '{thread.GetHierarchicalName()}'."));
-
-                            fetchedThreadsCount++;
-                        }
-                    }
-                );
-
-            await console.Output.WriteLineAsync($"Fetched {fetchedThreadsCount} thread(s).");
-        }
-
-        if (ExcludeChannelIds.Count > 0)
-        {
-            int oldChannelCount = channels.Count;
-            channels.RemoveAll(channel =>
-                ExcludeChannelIds.Contains(channel.Id)
-                || (channel.Parent != null && ExcludeChannelIds.Contains(channel.Parent.Id))
-            );
-            int channelDiff = oldChannelCount - channels.Count;
-
-            await console.Output.WriteLineAsync($"Excluded {channelDiff} channel(s).");
-        }
 
         await ExportAsync(console, channels);
     }
