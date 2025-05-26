@@ -257,6 +257,8 @@ public abstract class ExportCommandBase : DiscordCommandBase
             );
         }
 
+        DateTimeOffset now = DateTimeOffset.Now;
+
         // Export
         var errorsByChannel = new ConcurrentDictionary<Channel, string>();
         var warningsByChannel = new ConcurrentDictionary<Channel, string>();
@@ -298,6 +300,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                         OutputPath,
                                         AssetsDirPath,
                                         ExportFormat,
+                                        now,
                                         After,
                                         Before,
                                         PartitionLimit,

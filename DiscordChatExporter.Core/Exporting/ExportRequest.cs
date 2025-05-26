@@ -53,6 +53,7 @@ public partial class ExportRequest
         string outputPath,
         string? assetsDirPath,
         ExportFormat format,
+        DateTimeOffset now,
         Snowflake? after,
         Snowflake? before,
         PartitionLimit partitionLimit,
@@ -77,12 +78,20 @@ public partial class ExportRequest
         Locale = locale;
         IsUtcNormalizationEnabled = isUtcNormalizationEnabled;
 
-        OutputFilePath = GetOutputBaseFilePath(Guild, Channel, outputPath, Format, After, Before);
+        OutputFilePath = GetOutputBaseFilePath(
+            Guild,
+            Channel,
+            outputPath,
+            Format,
+            now,
+            After,
+            Before
+        );
 
         OutputDirPath = Path.GetDirectoryName(OutputFilePath)!;
 
         AssetsDirPath = !string.IsNullOrWhiteSpace(assetsDirPath)
-            ? FormatPath(assetsDirPath, Guild, Channel, After, Before)
+            ? FormatPath(assetsDirPath, Guild, Channel, After, Before, now)
             : $"{OutputFilePath}_Files{Path.DirectorySeparatorChar}";
 
         CultureInfo = Locale?.Pipe(CultureInfo.GetCultureInfo);
@@ -170,7 +179,8 @@ public partial class ExportRequest
         Guild guild,
         Channel channel,
         Snowflake? after,
-        Snowflake? before
+        Snowflake? before,
+        DateTimeOffset now
     ) =>
         Regex.Replace(
             path,
@@ -199,10 +209,7 @@ public partial class ExportRequest
                         "%b" => before
                             ?.ToDate()
                             .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) ?? "",
-                        "%d" => DateTimeOffset.Now.ToString(
-                            "yyyy-MM-dd",
-                            CultureInfo.InvariantCulture
-                        ),
+                        "%d" => now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
 
                         "%%" => "%",
                         _ => m.Value,
@@ -215,11 +222,12 @@ public partial class ExportRequest
         Channel channel,
         string outputPath,
         ExportFormat format,
+        DateTimeOffset now,
         Snowflake? after = null,
         Snowflake? before = null
     )
     {
-        var actualOutputPath = FormatPath(outputPath, guild, channel, after, before);
+        var actualOutputPath = FormatPath(outputPath, guild, channel, after, before, now);
 
         // Output is a directory
         if (

@@ -249,6 +249,8 @@ public partial class DashboardViewModel : ViewModelBase
 
             var successfulExportCount = 0;
 
+            DateTimeOffset now = DateTimeOffset.Now;
+
             await Parallel.ForEachAsync(
                 channelProgressPairs,
                 new ParallelOptions
@@ -268,6 +270,7 @@ public partial class DashboardViewModel : ViewModelBase
                             dialog.OutputPath!,
                             dialog.AssetsDirPath,
                             dialog.SelectedFormat,
+                            now,
                             dialog.After?.Pipe(Snowflake.FromDate),
                             dialog.Before?.Pipe(Snowflake.FromDate),
                             dialog.PartitionLimit,
