@@ -33,6 +33,8 @@ public partial class ExportRequest
 
     public PartitionLimit PartitionLimit { get; }
 
+    public int MessageLimit { get; }
+
     public MessageFilter MessageFilter { get; }
 
     public bool ShouldFormatMarkdown { get; }
@@ -57,6 +59,7 @@ public partial class ExportRequest
         Snowflake? after,
         Snowflake? before,
         PartitionLimit partitionLimit,
+        int messageLimit,
         MessageFilter messageFilter,
         bool shouldFormatMarkdown,
         bool shouldDownloadAssets,
@@ -71,6 +74,7 @@ public partial class ExportRequest
         After = after;
         Before = before;
         PartitionLimit = partitionLimit;
+        MessageLimit = messageLimit;
         MessageFilter = messageFilter;
         ShouldFormatMarkdown = shouldFormatMarkdown;
         ShouldDownloadAssets = shouldDownloadAssets;

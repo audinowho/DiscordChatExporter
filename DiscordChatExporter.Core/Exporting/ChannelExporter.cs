@@ -64,6 +64,7 @@ public class ChannelExporter(DiscordClient discord)
             );
         }
 
+        int messages_saved = 0;
         await foreach (
             var message in discord.GetMessagesAsync(
                 request.Channel.Id,
@@ -74,6 +75,8 @@ public class ChannelExporter(DiscordClient discord)
             )
         )
         {
+            if (request.MessageLimit >= 0 && messages_saved >= request.MessageLimit)
+                break;
             try
             {
                 // Resolve members for referenced users
@@ -82,7 +85,10 @@ public class ChannelExporter(DiscordClient discord)
 
                 // Export the message
                 if (request.MessageFilter.IsMatch(message))
+                {
                     await messageExporter.ExportMessageAsync(message, cancellationToken);
+                    messages_saved++;
+                }
             }
             catch (Exception ex)
             {

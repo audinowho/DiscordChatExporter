@@ -65,6 +65,9 @@ public abstract class ExportCommandBase : DiscordCommandBase
     )]
     public PartitionLimit PartitionLimit { get; init; } = PartitionLimit.Null;
 
+    [CommandOption("limit", 'l', Description = "Stops at number of messages per channel.")]
+    public int MessageLimit { get; init; } = -1;
+
     [CommandOption(
         "include-threads",
         Description = "Which types of threads should be included.",
@@ -222,6 +225,9 @@ public abstract class ExportCommandBase : DiscordCommandBase
             await console.Output.WriteLineAsync($"Excluded {channelDiff} channel(s).");
         }
 
+        foreach (Channel chid in unwrappedChannels)
+            System.Diagnostics.Debug.Write(chid.Id + "\n");
+
         // Asset reuse can only be enabled if the download assets option is set
         // https://github.com/Tyrrrz/DiscordChatExporter/issues/425
         if (ShouldReuseAssets && !ShouldDownloadAssets)
@@ -304,6 +310,7 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                         After,
                                         Before,
                                         PartitionLimit,
+                                        MessageLimit,
                                         MessageFilter,
                                         ShouldFormatMarkdown,
                                         ShouldDownloadAssets,
