@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -46,6 +47,22 @@ internal class ExportContext(DiscordClient discord, ExportRequest request)
         }
 
         await foreach (var role in Discord.GetGuildRolesAsync(Request.Guild.Id, cancellationToken))
+        {
+            _rolesById[role.Id] = role;
+        }
+    }
+
+    public void PopulateChannelsAndRoles(
+        ConcurrentDictionary<Snowflake, Channel> channelsById,
+        ConcurrentDictionary<Snowflake, Role> rolesById
+    )
+    {
+        foreach (var channel in channelsById.Values)
+        {
+            _channelsById[channel.Id] = channel;
+        }
+
+        foreach (var role in rolesById.Values)
         {
             _rolesById[role.Id] = role;
         }

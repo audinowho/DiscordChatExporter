@@ -268,6 +268,9 @@ public abstract class ExportCommandBase : DiscordCommandBase
         // Export
         var errorsByChannel = new ConcurrentDictionary<Channel, string>();
         var warningsByChannel = new ConcurrentDictionary<Channel, string>();
+        var guildById = new ConcurrentDictionary<Snowflake, Guild>();
+        var channelsById = new ConcurrentDictionary<Snowflake, Channel>();
+        var rolesById = new ConcurrentDictionary<Snowflake, Role>();
 
         await console.Output.WriteLineAsync($"Exporting {unwrappedChannels.Count} channel(s)...");
         await console
@@ -295,10 +298,37 @@ public abstract class ExportCommandBase : DiscordCommandBase
                                 Markup.Escape(channel.GetHierarchicalName()),
                                 async progress =>
                                 {
-                                    var guild = await Discord.GetGuildAsync(
-                                        channel.GuildId,
-                                        innerCancellationToken
-                                    );
+                                    Guild guild;
+                                    if (guildById.ContainsKey(channel.GuildId))
+                                        guild = guildById[channel.GuildId];
+                                    else
+                                    {
+                                        guild = await Discord.GetGuildAsync(
+                                            channel.GuildId,
+                                            innerCancellationToken
+                                        );
+                                        guildById[channel.GuildId] = guild;
+
+                                        await foreach (
+                                            var channel in Discord.GetGuildChannelsAsync(
+                                                guild.Id,
+                                                cancellationToken
+                                            )
+                                        )
+                                        {
+                                            channelsById[channel.Id] = channel;
+                                        }
+
+                                        await foreach (
+                                            var role in Discord.GetGuildRolesAsync(
+                                                guild.Id,
+                                                cancellationToken
+                                            )
+                                        )
+                                        {
+                                            rolesById[role.Id] = role;
+                                        }
+                                    }
 
                                     var request = new ExportRequest(
                                         guild,
@@ -321,6 +351,8 @@ public abstract class ExportCommandBase : DiscordCommandBase
 
                                     await Exporter.ExportChannelAsync(
                                         request,
+                                        channelsById,
+                                        rolesById,
                                         progress.ToPercentageBased(),
                                         innerCancellationToken
                                     );

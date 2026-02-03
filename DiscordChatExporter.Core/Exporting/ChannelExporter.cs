@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using DiscordChatExporter.Core.Discord;
@@ -12,6 +13,8 @@ public class ChannelExporter(DiscordClient discord)
 {
     public async ValueTask ExportChannelAsync(
         ExportRequest request,
+        ConcurrentDictionary<Snowflake, Channel> channelsById,
+        ConcurrentDictionary<Snowflake, Role> rolesById,
         IProgress<Percentage>? progress = null,
         CancellationToken cancellationToken = default
     )
@@ -29,11 +32,14 @@ public class ChannelExporter(DiscordClient discord)
 
         // Build context
         var context = new ExportContext(discord, request);
-        await context.PopulateChannelsAndRolesAsync(cancellationToken);
+        context.PopulateChannelsAndRoles(channelsById, rolesById);
 
         // Initialize the exporter before further checks to ensure the file is created even if
         // an exception is thrown after this point.
         await using var messageExporter = new MessageExporter(context);
+
+        if (request.MessageLimit == 0)
+            return;
 
         // Check if the channel is empty
         if (request.Channel.IsEmpty)
