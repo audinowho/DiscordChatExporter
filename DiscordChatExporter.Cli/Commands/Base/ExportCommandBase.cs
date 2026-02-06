@@ -69,13 +69,6 @@ public abstract class ExportCommandBase : DiscordCommandBase
     public int MessageLimit { get; init; } = -1;
 
     [CommandOption(
-        "include-threads",
-        Description = "Which types of threads should be included.",
-        Converter = typeof(ThreadInclusionModeBindingConverter)
-    )]
-    public ThreadInclusionMode ThreadInclusionMode { get; init; } = ThreadInclusionMode.None;
-
-    [CommandOption(
         "exclude-channel",
         'x',
         Description = "Channel ID(s). "
