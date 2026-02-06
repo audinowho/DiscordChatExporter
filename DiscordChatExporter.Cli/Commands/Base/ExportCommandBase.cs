@@ -84,6 +84,13 @@ public abstract class ExportCommandBase : DiscordCommandBase
     public IReadOnlyList<Snowflake> ExcludeChannelIds { get; init; } = new Snowflake[0];
 
     [CommandOption(
+        "include-threads",
+        Description = "Which types of threads should be included.",
+        Converter = typeof(ThreadInclusionModeBindingConverter)
+    )]
+    public ThreadInclusionMode ThreadInclusionMode { get; init; } = ThreadInclusionMode.None;
+
+    [CommandOption(
         "filter",
         Description = "Only include messages that satisfy this filter. "
             + "See the documentation for more info."
