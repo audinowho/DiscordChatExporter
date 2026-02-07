@@ -355,6 +355,7 @@ public class DiscordClient(
                 {
                     // Offset is just the index of the last thread in the previous batch
                     var currentOffset = 0;
+                    int emptyResults = 0;
                     while (true)
                     {
                         var url = new UrlBuilder()
@@ -372,6 +373,7 @@ public class DiscordClient(
 
                         var breakOuter = false;
 
+                        int oldOffset = currentOffset;
                         foreach (
                             var threadJson in response.Value.GetProperty("threads").EnumerateArray()
                         )
@@ -394,6 +396,10 @@ public class DiscordClient(
                             break;
 
                         if (!response.Value.GetProperty("has_more").GetBoolean())
+                            break;
+                        if (currentOffset == oldOffset)
+                            emptyResults++;
+                        if (emptyResults >= 10)
                             break;
                     }
                 }
