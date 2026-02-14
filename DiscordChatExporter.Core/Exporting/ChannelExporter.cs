@@ -30,6 +30,25 @@ public class ChannelExporter(DiscordClient discord)
             );
         }
 
+        // custom code: pre-check against forbidden channels to prevent them from being written
+        if (!request.Channel.IsThread)
+        {
+            try
+            {
+                var channel = await discord.GetChannelAsync(request.Channel.Id, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                // Provide more context to the exception, to simplify debugging based on error messages
+                throw new DiscordChatExporterException(
+                    $"Failed to export channel '{request.Channel.Name}' (#{request.Channel.Id}) "
+                        + $"of guild '{request.Guild.Name} (#{request.Guild.Id})'.",
+                    ex is not DiscordChatExporterException dex || dex.IsFatal,
+                    ex
+                );
+            }
+        }
+
         // Build context
         var context = new ExportContext(discord, request);
         context.PopulateChannelsAndRoles(channelsById, rolesById);
